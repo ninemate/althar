@@ -13,6 +13,7 @@ import { Coordinator, CoordinatorUnavailable } from '../src/Coordinator'
 import { coordinatorNews, modelNamer } from '../src/coordinatorNews'
 import { NotFound } from '../src/errors'
 import { Instance } from '../src/Instance'
+import { Models } from '../src/Models'
 import { Plans } from '../src/Plans'
 import { Projects } from '../src/Projects'
 import { Queries } from '../src/Queries'
@@ -676,7 +677,20 @@ describe('what the coordinator hears of its plans', () => {
       yield* plans.start(mergedPlan, person)
       yield* sql`UPDATE tasks SET state = 'done' WHERE id = ${merged}`
 
-      const news = (yield* coordinatorNews(threadId, projectId, yield* modelNamer)) ?? ''
+      // Model discovery is deliberately in the background. Wait for the fake agents to expose the names this
+      // assertion checks; otherwise a fast test can observe the coordinator's documented ID fallback.
+      const models = yield* Models
+      yield* until(models.catalog, (catalog) =>
+        [
+          ['claude-code', 'small'],
+          ['codex', 'large'],
+        ].every(([agentId, modelId]) => {
+          const agent = catalog.find((candidate) => candidate.agentId === agentId)
+          return agent !== undefined && !agent.probing && agent.models.some((model) => model.id === modelId)
+        }),
+      )
+      const named = yield* modelNamer
+      const news = (yield* coordinatorNews(threadId, projectId, named)) ?? ''
       assert.match(news, /^Since you last spoke, in Althar:\n/)
       assert.match(
         news,
@@ -696,7 +710,14 @@ describe('what the coordinator hears of its plans', () => {
       assert.include(news, '- spike-the-cache (Spike the cache): It started, and the person abandoned it.')
       assert.include(news, '- ship-the-banner (Ship the banner): It has started and is done.')
       assert.match(news, /Speak of these plans as they are now, not as they were proposed\.$/)
-    }).pipe(Effect.provide(withQueries(undefined, undefined, { countdown: Duration.seconds(30) }))),
+    }).pipe(
+      Effect.provide(
+        withQueries(undefined, undefined, {
+          countdown: Duration.seconds(30),
+          each: { 'codex@usual': { slowStart: 1_500 } },
+        }),
+      ),
+    ),
   )
 
   it.live('has nothing to say before it has spoken, or when nothing changed', () =>
