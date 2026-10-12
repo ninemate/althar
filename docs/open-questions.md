@@ -9,6 +9,22 @@ Leanings are only where we are now. None of them are decisions.
 "The kit" is `@althar/ui` (`packages/ui`). "The prototype" is the shell
 prototype in the `althar-designs` repository (`prototypes/shell`).
 
+## Notifications, 12 October
+
+- [ ] **What gets an OS prompt.** The draft in
+  [the notifications plan](plans/notifications.md) keeps actionable requests
+  and ready/stopped tasks immediate, puts step reports and review conclusions
+  in cross-project Activity, and leaves progress quiet. Confirm the defaults,
+  digest interval, and project-level mute behavior before implementation.
+- [ ] **Usage warnings before a limit.** ACP's usage update is context-window
+  use/cost, not a provider plan window. Claude and Codex status side channels
+  are described in architecture 03 but are not wired in the provider adapters;
+  OpenCode API-key use has no plan window. Decide the warning threshold and
+  whether to add each documented provider signal as an adapter capability.
+- [ ] **Activity history.** The plan proposes durable read state, grouped by
+  project. Decide retention and whether that state belongs to this device or
+  is shared across Althar instances.
+
 ## Questions agents ask, 10 October
 
 - [x] **What a question waits on.** The thread, not the session: it outlives
@@ -676,8 +692,11 @@ never under running work.
   so it pauses every agent on that account at once: the lead, its steps, and
   their sub-agents. Leaning: a project rule moves the work to the
   next free agent, which shows as a quiet line, and the card appears only when
-  the rule says to ask. How a limit is detected is settled
-  ([architecture 03](architecture/03-agent-runtime-and-auth.md), Usage limits).
+  the rule says to ask. Confirmed limits are classified from errors today;
+  pre-limit account-status side channels described in
+  [architecture 03](architecture/03-agent-runtime-and-auth.md) are not yet
+  read by the provider adapters
+  ([gap list](../packages/provider-adapters/ARCHITECTURE.md)).
   Open:
   - Does paused work move back after the reset?
   - What if no other runtime is connected?
