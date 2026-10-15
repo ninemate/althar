@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process'
+
 /*
  * Whether secrets may be sealed here. Electron's safeStorage uses the OS
  * keychain on macOS and Windows, and libsecret on Linux, where it can fall
@@ -39,15 +41,31 @@ export const passwordStore = (
   flatpak: boolean,
   platform: NodeJS.Platform = process.platform,
   kdeVersion?: string,
+  kwalletOn: (version: '5' | '6') => boolean = kwalletIsOn,
 ): 'gnome-libsecret' | 'kwallet5' | 'kwallet6' | null => {
   // A Linux switch: macOS and Windows keep their own keychain, which Electron knows without being told.
   if (platform !== 'linux') return null
   if (args.some((arg) => arg === '--password-store' || arg.startsWith('--password-store='))) return null
   const names = (desktop ?? '').toLowerCase().split(':')
   const kde = names.includes('kde')
-  if (flatpak && kde) return kdeVersion === '5' ? 'kwallet5' : 'kwallet6'
+  const version = kdeVersion === '5' ? '5' : '6'
+  // KWallet turned off (another secret service, such as KeePassXC, in its place) keeps libsecret: Chromium never falls back from KWallet, so asking for it would leave nothing to seal with.
+  if (flatpak && kde && kwalletOn(version)) return `kwallet${version}`
   const recognised = ['x-cinnamon', 'deepin', 'gnome', 'pantheon', 'xfce', 'ukui', 'unity']
   return flatpak || kde || !names.some((name) => recognised.includes(name)) ? 'gnome-libsecret' : null
+}
+
+/**
+ * Whether KWallet is on in the person's session: kwalletd's own answer over
+ * D-Bus (`isEnabled`, which starts kwalletd but opens no wallet), asked with
+ * the runtime's gdbus before Electron is ready. A kwalletd that is missing,
+ * out of reach or slow counts as off.
+ */
+export const kwalletIsOn = (version: '5' | '6', run: typeof spawnSync = spawnSync): boolean => {
+  const daemon = `kwalletd${version}`
+  const call = ['call', '--session', '--dest', `org.kde.${daemon}`, '--object-path', `/modules/${daemon}`]
+  const answer = run('gdbus', [...call, '--method', 'org.kde.KWallet.isEnabled', '--timeout', '2'], { encoding: 'utf8', timeout: 3000 })
+  return answer.status === 0 && String(answer.stdout).trim() === '(true,)'
 }
 
 /** What the window says when secrets can't be sealed here: on Linux, what to install; elsewhere, that the keychain is missing. */

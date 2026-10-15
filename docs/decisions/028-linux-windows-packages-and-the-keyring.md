@@ -57,7 +57,12 @@
     entry `Chromium Safe Storage`; it only makes one where that entry is empty,
     and never overwrites one. KWallet asks for the wallet's password if the
     wallet is closed, and asks to let Althar in if its "prompt when an
-    application accesses a wallet" setting is on. Refused, closed or away,
+    application accesses a wallet" setting is on. Chromium never falls back
+    from KWallet, so the app first asks kwalletd whether KWallet is on
+    (`isEnabled`, with the runtime's gdbus, before Electron is ready): turned
+    off, missing or out of reach, with another secret service such as
+    KeePassXC in its place, it keeps libsecret, and a sign-in lasts the session
+    as it did before. On but refused or closed,
     `isEncryptionAvailable()` is false and the same refusal holds: no sign-in
     is sealed, and nothing falls back to plain text. Outside a Flatpak KDE
     keeps libsecret, which looks up where it stores. Other desktops in a

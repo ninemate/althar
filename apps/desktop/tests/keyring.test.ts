@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { keyringIsSafe, keyringUnavailable, passwordStore } from '../src/main/keyring'
+import { keyringIsSafe, keyringUnavailable, kwalletIsOn, passwordStore } from '../src/main/keyring'
+
+/** KWallet on, as kwalletd would answer it: no test asks the real one. */
+const on = () => true
 
 describe('sealing secrets by keyring', () => {
   it('takes a real keyring on Linux, and nothing else', () => {
@@ -46,18 +49,53 @@ describe('the password store Electron is asked for', () => {
   })
 
   it('asks for KWallet itself in a Flatpak on KDE, where libsecret keeps the key in a file Chromium never looks in', () => {
-    expect(passwordStore([], 'KDE', true, 'linux', '6')).toBe('kwallet6')
-    expect(passwordStore([], 'KDE', true, 'linux', '5')).toBe('kwallet5')
+    expect(passwordStore([], 'KDE', true, 'linux', '6', on)).toBe('kwallet6')
+    expect(passwordStore([], 'KDE', true, 'linux', '5', on)).toBe('kwallet5')
     // Plasma 6 is the KWallet a session without a version is taken for.
-    expect(passwordStore([], 'KDE', true, 'linux')).toBe('kwallet6')
-    expect(passwordStore([], 'X-Generic:KDE', true, 'linux', '6')).toBe('kwallet6')
-    expect(passwordStore(['--password-store=gnome-libsecret'], 'KDE', true, 'linux', '6')).toBeNull()
+    expect(passwordStore([], 'KDE', true, 'linux', undefined, on)).toBe('kwallet6')
+    expect(passwordStore([], 'X-Generic:KDE', true, 'linux', '6', on)).toBe('kwallet6')
+    expect(passwordStore(['--password-store=gnome-libsecret'], 'KDE', true, 'linux', '6', on)).toBeNull()
+  })
+
+  it('keeps libsecret in a Flatpak on KDE when KWallet is off, so another secret service such as KeePassXC still seals', () => {
+    const asked: Array<string> = []
+    const off = (version: '5' | '6') => (asked.push(version), false)
+    expect(passwordStore([], 'KDE', true, 'linux', '6', off)).toBe('gnome-libsecret')
+    expect(passwordStore([], 'KDE', true, 'linux', '5', off)).toBe('gnome-libsecret')
+    expect(asked).toEqual(['6', '5'])
+    // Off KDE or outside a Flatpak, kwalletd is never asked.
+    for (const [desktop, flatpak] of [
+      ['GNOME', true],
+      ['KDE', false],
+    ] as const)
+      passwordStore([], desktop, flatpak, 'linux', '6', off)
+    expect(asked).toEqual(['6', '5'])
+  })
+
+  it('takes KWallet for on only when kwalletd itself says so', () => {
+    const answering = (status: number | null, stdout: string) => {
+      const calls: Array<ReadonlyArray<string>> = []
+      const run = ((_command: string, args: ReadonlyArray<string>) => (calls.push(args), { status, stdout })) as never
+      return { calls, on: (version: '5' | '6') => kwalletIsOn(version, run) }
+    }
+    const enabled = answering(0, '(true,)\n')
+    expect(enabled.on('6')).toBe(true)
+    expect(enabled.on('5')).toBe(true)
+    expect(enabled.calls.map((args) => args[args.indexOf('--dest') + 1])).toEqual(['org.kde.kwalletd6', 'org.kde.kwalletd5'])
+    // Turned off, unreachable (the D-Bus proxy refuses the name), or gdbus missing or timed out (no status).
+    expect(answering(0, '(false,)\n').on('6')).toBe(false)
+    expect(answering(1, '').on('6')).toBe(false)
+    expect(answering(null, '').on('6')).toBe(false)
   })
 
   it('only ever asks for a store whose backend is a keyring', () => {
     const desktops = [undefined, 'KDE', 'GNOME', 'Hyprland', 'sway']
     const asked = desktops.flatMap((desktop) =>
-      [false, true].flatMap((flatpak) => ['5', '6', undefined].map((version) => passwordStore([], desktop, flatpak, 'linux', version))),
+      [false, true].flatMap((flatpak) =>
+        ['5', '6', undefined].flatMap((version) =>
+          [on, () => false].map((kwallet) => passwordStore([], desktop, flatpak, 'linux', version, kwallet)),
+        ),
+      ),
     )
     // The backend Electron reports for each switch: gnome-libsecret is gnome_libsecret, KWallet's keep their names.
     for (const store of asked) if (store !== null) expect(keyringIsSafe('linux', store.replace('-', '_'))).toBe(true)

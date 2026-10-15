@@ -125,7 +125,7 @@ app.setName('Althar')
 // Off a Mac Electron draws the application menu's bar at the top of every window, frameless or not; the menu is kept for its accelerators (appMenu), and its bar is hidden here (windowOptions.ts, ADR-019).
 if (process.platform !== 'darwin') app.on('browser-window-created', (_event, window) => window.setMenuBarVisibility(false))
 
-// Off a Mac, ask for a secret service where Electron would fall back to plain text, and for KWallet in a Flatpak on KDE (keyring.ts).
+// Off a Mac, ask for a secret service where Electron would fall back to plain text, and for KWallet in a Flatpak on KDE when it is on (keyring.ts).
 const store = passwordStore(
   process.argv,
   process.env.XDG_CURRENT_DESKTOP,

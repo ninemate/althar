@@ -79,7 +79,7 @@ case "${XDG_CURRENT_DESKTOP:-}" in
     service=org.kde.kwalletd6; [ "${KDE_SESSION_VERSION:-6}" = 5 ] && service=org.kde.kwalletd5
     wallet="--session --dest $service --object-path /modules/${service#org.kde.} --method org.kde.KWallet"
     enabled=$(run "gdbus call $wallet.isEnabled")
-    case "$enabled" in *true*) ok "KWallet answers from the sandbox and is on ($service)";; *) bad "KWallet answers from the sandbox ($service said: ${enabled:-nothing})";; esac
+    case "$enabled" in *true*) ok "KWallet answers from the sandbox and is on ($service)";; *false*) echo "NOTE: KWallet is off ($service), so the app keeps libsecret and a sign-in lasts the session";; *) bad "KWallet answers from the sandbox ($service said: ${enabled:-nothing})";; esac
     network=$(run "gdbus call $wallet.networkWallet")
     case "$network" in *\'?*\'*) ok "the wallet Chromium keeps the key in is named ($network)";; *) bad "KWallet names its network wallet";; esac
     ;;
