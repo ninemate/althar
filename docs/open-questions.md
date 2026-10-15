@@ -12,10 +12,12 @@ prototype in the `althar-designs` repository (`prototypes/shell`).
 ## The Flatpak's keyring, 15 October
 
 - [ ] **Where the sealing key lives in a Flatpak on KDE, so it survives a
-  restart.** Decided, not yet shown: in KWallet itself, when it is on: the app asks for `--password-store=kwallet6`
-  (`kwallet5` on Plasma 5), and the manifest lets it talk to
-  `org.kde.kwalletd6` and `org.kde.kwalletd5`
-  ([ADR-028](decisions/028-linux-windows-packages-and-the-keyring.md)). The
+  restart.** Decided, not yet shown: in KWallet itself, when it is on. The
+  app asks for `--password-store=kwallet6` (`kwallet5` on Plasma 5), and the
+  manifest lets it talk to `org.kde.kwalletd6` and `org.kde.kwalletd5`
+  ([ADR-028](decisions/028-linux-windows-packages-and-the-keyring.md)).
+  KWallet turned off (KeePassXC in its place, say) keeps libsecret and a
+  sign-in for the session, as before. The
   cause of the new key at every start: inside a sandbox libsecret's
   `secret_password_store` writes to a keyring file of the app's own
   (`~/.var/app/dev.althar.app/data/keyrings/default.keyring`, opened with a
@@ -25,10 +27,8 @@ prototype in the `althar-designs` repository (`prototypes/shell`).
   one in the file again. Shown with the same Electron 44.5 and a keyring of its
   own: two runs, two new keys, and the second can't open what the first sealed.
   `SECRET_BACKEND` can't route around it: libsecret checks for a sandbox
-  first. KWallet turned off (KeePassXC in its place, say) keeps libsecret and
-  a sign-in for the session, as before. Decided with the person, 15 October;
-  open until a sign-in is shown surviving `flatpak kill dev.althar.app` on a
-  Plasma, which no one has done yet.
+  first. Decided with the person, 15 October; whether a sign-in survives
+  `flatpak kill dev.althar.app` on the person's Plasma is still theirs to test.
 - [ ] **The same for GNOME and other desktops in a Flatpak.** They still get
   libsecret, and a new key at each start; a sign-in made in one run asks to be
   made again in the next. Leanings: a libsecret built in the manifest that

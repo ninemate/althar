@@ -2,9 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { keyringIsSafe, keyringUnavailable, kwalletIsOn, passwordStore } from '../src/main/keyring'
 
-/** KWallet on, as kwalletd would answer it: no test asks the real one. */
-const on = () => true
-
 describe('sealing secrets by keyring', () => {
   it('takes a real keyring on Linux, and nothing else', () => {
     expect(keyringIsSafe('linux', 'gnome_libsecret')).toBe(true)
@@ -30,6 +27,9 @@ describe('sealing secrets by keyring', () => {
 })
 
 describe('the password store Electron is asked for', () => {
+  /** KWallet on, as kwalletd would answer it: no test asks the real one. */
+  const on = () => true
+
   it('asks for libsecret where Electron would pick plain text, and leaves a choice of the person’s alone', () => {
     expect(passwordStore([], undefined, false, 'linux')).toBe('gnome-libsecret')
     expect(passwordStore([], 'Hyprland', false, 'linux')).toBe('gnome-libsecret')

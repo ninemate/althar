@@ -19,6 +19,19 @@ const isKeyring = (backend: string) => backend === 'gnome_libsecret' || backend.
 export const keyringIsSafe = (platform: NodeJS.Platform, backend: string): boolean => platform !== 'linux' || isKeyring(backend)
 
 /**
+ * Whether KWallet is on in the person's session: kwalletd's own answer over
+ * D-Bus (`isEnabled`, which starts kwalletd but opens no wallet), asked with
+ * the runtime's gdbus before Electron is ready. A kwalletd that is missing,
+ * out of reach or slow counts as off.
+ */
+export const kwalletIsOn = (version: '5' | '6', run: typeof spawnSync = spawnSync): boolean => {
+  const daemon = `kwalletd${version}`
+  const call = ['call', '--session', '--dest', `org.kde.${daemon}`, '--object-path', `/modules/${daemon}`]
+  const answer = run('gdbus', [...call, '--method', 'org.kde.KWallet.isEnabled', '--timeout', '2'], { encoding: 'utf8', timeout: 3000 })
+  return answer.status === 0 && String(answer.stdout).trim() === '(true,)'
+}
+
+/**
  * Which password store to ask Electron for, off a Mac. Electron picks
  * gnome_libsecret only for desktops it recognises and plain text for others.
  * Asking for gnome_libsecret on an unrecognised desktop or KDE is safe:
@@ -53,19 +66,6 @@ export const passwordStore = (
   if (flatpak && kde && kwalletOn(version)) return `kwallet${version}`
   const recognised = ['x-cinnamon', 'deepin', 'gnome', 'pantheon', 'xfce', 'ukui', 'unity']
   return flatpak || kde || !names.some((name) => recognised.includes(name)) ? 'gnome-libsecret' : null
-}
-
-/**
- * Whether KWallet is on in the person's session: kwalletd's own answer over
- * D-Bus (`isEnabled`, which starts kwalletd but opens no wallet), asked with
- * the runtime's gdbus before Electron is ready. A kwalletd that is missing,
- * out of reach or slow counts as off.
- */
-export const kwalletIsOn = (version: '5' | '6', run: typeof spawnSync = spawnSync): boolean => {
-  const daemon = `kwalletd${version}`
-  const call = ['call', '--session', '--dest', `org.kde.${daemon}`, '--object-path', `/modules/${daemon}`]
-  const answer = run('gdbus', [...call, '--method', 'org.kde.KWallet.isEnabled', '--timeout', '2'], { encoding: 'utf8', timeout: 3000 })
-  return answer.status === 0 && String(answer.stdout).trim() === '(true,)'
 }
 
 /** What the window says when secrets can't be sealed here: on Linux, what to install; elsewhere, that the keychain is missing. */
